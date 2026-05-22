@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getDashboardSnapshot } from "@/services/dashboard-service";
+import { JobFeed } from "@/components/jobs/job-feed";
 import { routes } from "@/utils/routes";
 
 export default async function DashboardPage() {
@@ -17,7 +18,7 @@ export default async function DashboardPage() {
   const snapshot = await getDashboardSnapshot(user?.id);
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-10">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-10 px-6 py-10">
       <section className="grid gap-6 rounded-[2rem] border border-border/60 bg-card/70 p-8 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.4)] backdrop-blur-xl lg:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-5">
           <Badge variant="secondary" className="w-fit">
@@ -28,10 +29,7 @@ export default async function DashboardPage() {
               {user?.firstName ? `Welcome back, ${user.firstName}.` : "Welcome back."}
             </h1>
             <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-              This dashboard is wired for Clerk, Prisma, and PostgreSQL. The UI
-              is production-ready, while the data shown here is seeded
-              placeholder content until you connect a live database and AI
-              providers.
+              Monitor your career progress, optimize your resumes, and discover high-fit roles tailored by our AI engine.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -48,36 +46,29 @@ export default async function DashboardPage() {
         </div>
         <Card className="border-border/60 bg-background/70">
           <CardHeader className="space-y-2">
-            <CardTitle className="text-lg">Resume focus</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Parsed profile derived from the shared parser domain.
-            </p>
+            <CardTitle className="text-lg text-primary flex items-center gap-2">
+              <Badge className="bg-primary/10 text-primary border-none px-2 text-[10px]">AI</Badge>
+              Profile Snapshot
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
             <div>
-              <p className="text-sm text-muted-foreground">Target role</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Target role</p>
               <p className="text-xl font-semibold">
                 {snapshot.resumeProfile.roleFocus}
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-border/60 bg-card px-4 py-3">
-                <p className="text-sm text-muted-foreground">Seniority</p>
+                <p className="text-xs text-muted-foreground mb-1">Seniority</p>
                 <p className="mt-1 font-medium">{snapshot.resumeProfile.seniority}</p>
               </div>
               <div className="rounded-2xl border border-border/60 bg-card px-4 py-3">
-                <p className="text-sm text-muted-foreground">Experience</p>
+                <p className="text-xs text-muted-foreground mb-1">Experience</p>
                 <p className="mt-1 font-medium">
                   {snapshot.resumeProfile.yearsOfExperience} years
                 </p>
               </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {snapshot.resumeProfile.strengths.map((strength) => (
-                <Badge key={strength} variant="outline">
-                  {strength}
-                </Badge>
-              ))}
             </div>
           </CardContent>
         </Card>
@@ -87,6 +78,17 @@ export default async function DashboardPage() {
         {snapshot.metrics.map((metric) => (
           <MetricCard key={metric.label} metric={metric} />
         ))}
+      </section>
+
+      <section>
+        <SectionHeading
+          eyebrow="Opportunities"
+          title="Smart Match Job Feed"
+          description="Real-time jobs from multi-source aggregation, matched against your latest resume."
+        />
+        <div className="mt-8">
+          <JobFeed />
+        </div>
       </section>
 
       <section id="recommendations" className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">

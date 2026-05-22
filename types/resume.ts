@@ -72,11 +72,12 @@ export type ParserResult = z.infer<typeof parserResultSchema>;
 export const storedResumeSchema = z.object({
   id: z.string().min(1),
   metadata: resumeMetadataSchema.extend({
-    fileUrl: z.string().min(1),
+    fileUrl: z.string().min(1).nullable(),
   }),
   rawText: z.string().min(1),
   parsedData: parsedResumeSchema,
   extractedSkills: z.array(z.string().min(1)),
+  targetRole: z.string().nullable().optional(),
   createdAt: z.string().min(1),
   updatedAt: z.string().min(1),
 });
@@ -166,17 +167,31 @@ export const deleteResponseSchema = z.union([
 
 export interface FullResumeAnalysis {
   atsScore: number;
+  formattingScore: number;
+  impactScore: number;
+  readinessScore: number;
+  sectionScores: {
+    summary: number;
+    experience: number;
+    projects: number;
+    skills: number;
+    education: number;
+  };
+  prioritizedActions: {
+    impact: "HIGH" | "MEDIUM";
+    type: "FORMATTING" | "CONTENT" | "KEYWORDS";
+    action: string;
+    reason: string;
+  }[];
   strengths: string[];
   weaknesses: string[];
   recommendations: string[];
+  executiveSummary: string;
+  topThreeChanges: string[];
   missingKeywords: string[];
   matchedKeywords: string[];
   technicalGaps: string[];
   softSkillGaps: string[];
-  readinessScore: number;
-  executiveSummary: string;
-  formattingScore: number;
-  impactScore: number;
   upskillingPlan: string[];
 }
 

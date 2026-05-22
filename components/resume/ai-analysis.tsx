@@ -2,17 +2,18 @@
 
 import { useState } from "react";
 import { 
+  Activity,
   AlertCircle, 
   BrainCircuit, 
   CheckCircle2, 
   ChevronDown, 
   ChevronUp, 
-  FileSearch, 
-  Lightbulb, 
-  Target, 
-  TrendingUp 
-} from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+  FileSearch,
+  Lightbulb,
+  Sparkles,
+  Target,
+  TrendingUp
+} from "lucide-react";import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -105,29 +106,71 @@ export function AiAnalysis({ resume }: AiAnalysisProps) {
 
   if (!analysis) return null;
 
+  const sectionScores = analysis.sectionScores || {
+    summary: 0,
+    experience: 0,
+    projects: 0,
+    skills: 0,
+    education: 0
+  };
+
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-4">
         <ScoreCard 
-          title="ATS Score" 
-          score={analysis.atsScore} 
-          icon={Target} 
-          description="How well your resume passes automated filters."
+          title="Overall Readiness"
+          score={analysis.readinessScore || 0}
+          icon={Target}
+          description="Total market readiness score."
         />
         <ScoreCard 
-          title="Formatting" 
-          score={analysis.formattingScore} 
-          icon={FileSearch} 
-          description="Readability and structure quality."
+          title="ATS Score"
+          score={analysis.atsScore}
+          icon={Activity}
+          description="Automated filter compatibility."
         />
-        <ScoreCard 
-          title="Impact" 
-          score={analysis.impactScore} 
-          icon={TrendingUp} 
-          description="Strength of your achievements and metrics."
+        <ScoreCard
+          title="Formatting"
+          score={analysis.formattingScore}
+          icon={FileSearch}
+          description="Structure and readability."
+        />
+        <ScoreCard
+          title="Impact"
+          score={analysis.impactScore}
+          icon={TrendingUp}
+          description="Achievement strength."
         />
       </div>
 
+      {analysis.prioritizedActions && analysis.prioritizedActions.length > 0 && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-primary">
+              <Sparkles className="h-5 w-5" />
+              Prioritized Action Items
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2">
+              {analysis.prioritizedActions.slice(0, 4).map((action, i) => (
+                <div key={i} className="flex items-start gap-3 p-3 rounded-xl border bg-background/50">
+                  <div className={cn(
+                    "mt-1 h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0",
+                    action.impact === "HIGH" ? "bg-red-500/10 text-red-500" : "bg-amber-500/10 text-amber-500"
+                  )}>
+                    {i + 1}
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold leading-none">{action.action}</p>
+                    <p className="text-xs text-muted-foreground">{action.reason}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

@@ -4,10 +4,10 @@ import { JetBrains_Mono, Manrope } from "next/font/google";
 import { Navbar } from "@/components/layout/navbar";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { APP_DESCRIPTION, APP_NAME } from "@/lib/constants";
-import { getAppEnv } from "@/lib/env";
+import { getPublicEnv } from "@/lib/env";
 import "./globals.css";
 
-const appEnv = getAppEnv();
+const appEnv = getPublicEnv();
 
 const manrope = Manrope({
   subsets: ["latin"],

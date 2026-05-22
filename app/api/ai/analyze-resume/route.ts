@@ -37,11 +37,19 @@ export async function POST(req: Request) {
       success: true,
       analysis,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Analysis Error:", error);
+
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid request data", details: error.issues }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid request data", details: error.issues },
+        { status: 400 },
+      );
     }
-    return NextResponse.json({ error: "Failed to analyze resume" }, { status: 500 });
+
+    const message =
+      error instanceof Error ? error.message : "Failed to analyze resume";
+
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

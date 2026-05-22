@@ -24,11 +24,18 @@ const databaseUrl = z
     "DATABASE_URL must be a valid PostgreSQL connection string.",
   );
 
+const geminiKey = z.string().trim().default("");
+
 const serverEnvSchema = z.object({
   DATABASE_URL: databaseUrl,
   CLERK_SECRET_KEY: nonEmptyString("CLERK_SECRET_KEY"),
-  OPENAI_API_KEY: nonEmptyString("OPENAI_API_KEY"),
-  OPENAI_RESUME_ANALYSIS_MODEL: z.string().trim().default("gpt-4.1-mini"),
+  GEMINI_API_KEY: geminiKey,
+  GEMINI_MODEL: z.string().trim().min(1).default("gemini-2.5-flash"),
+  GEMINI_FALLBACK_MODEL: z
+    .string()
+    .trim()
+    .min(1)
+    .default("gemini-2.5-flash-lite"),
   CLERK_SIGN_IN_URL: z.string().trim().default("/sign-in"),
   CLERK_SIGN_UP_URL: z.string().trim().default("/sign-up"),
   CLERK_AFTER_SIGN_IN_URL: z.string().trim().default("/dashboard"),
@@ -48,10 +55,7 @@ type PublicEnv = z.infer<typeof publicEnvSchema>;
 let serverEnvCache: ServerEnv | undefined;
 let publicEnvCache: PublicEnv | undefined;
 
-function formatEnvError(
-  scope: "server" | "public",
-  error: z.ZodError,
-) {
+function formatEnvError(scope: "server" | "public", error: z.ZodError) {
   const issues = error.issues
     .map((issue) => `- ${issue.path.join(".")}: ${issue.message}`)
     .join("\n");
@@ -79,11 +83,14 @@ function parseEnv<TSchema extends z.ZodTypeAny>(
 
 export function getServerEnv() {
   if (!serverEnvCache) {
+    const rawGeminiKey = process.env.GEMINI_API_KEY?.trim();
+
     serverEnvCache = parseEnv("server", serverEnvSchema, {
       DATABASE_URL: process.env.DATABASE_URL,
       CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY,
-      OPENAI_API_KEY: process.env.OPENAI_API_KEY,
-      OPENAI_RESUME_ANALYSIS_MODEL: process.env.OPENAI_RESUME_ANALYSIS_MODEL,
+      GEMINI_API_KEY: rawGeminiKey,
+      GEMINI_MODEL: process.env.GEMINI_MODEL,
+      GEMINI_FALLBACK_MODEL: process.env.GEMINI_FALLBACK_MODEL,
       CLERK_SIGN_IN_URL: process.env.CLERK_SIGN_IN_URL,
       CLERK_SIGN_UP_URL: process.env.CLERK_SIGN_UP_URL,
       CLERK_AFTER_SIGN_IN_URL: process.env.CLERK_AFTER_SIGN_IN_URL,

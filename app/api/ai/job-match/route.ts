@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { performAiJobMatch } from "@/lib/ai/services/ai-job-match-service";
+import { ensureUserProfile } from "@/lib/user-profiles";
 import { prisma } from "@/lib/prisma";
 
 const matchSchema = z.object({
@@ -19,8 +20,18 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { resumeId, jobDescription } = matchSchema.parse(body);
 
-    const resume = await prisma.resume.findUnique({
-      where: { id: resumeId },
+    const user = await currentUser();
+    const userProfile = await ensureUserProfile({
+      clerkUserId,
+      email: user?.primaryEmailAddress?.emailAddress ?? null,
+      firstName: user?.firstName ?? user?.username ?? null,
+    });
+
+    const resume = await prisma.resume.findFirst({
+      where: {
+        id: resumeId,
+        userId: userProfile.id,
+      },
     });
 
     if (!resume || !resume.rawText) {
@@ -33,11 +44,17 @@ export async function POST(req: Request) {
       success: true,
       match: matchResult,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Job Match Error:", error);
+
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid request data", details: error.issues }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid request data", details: error.issues },
+        { status: 400 },
+      );
     }
-    return NextResponse.json({ error: "Failed to match job" }, { status: 500 });
+
+    const message = error instanceof Error ? error.message : "Failed to match job";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

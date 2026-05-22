@@ -3,14 +3,23 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum JobType {
   REMOTE
   HYBRID
   ONSITE
+}
+
+enum JobFreshnessBucket {
+  LAST_24_HOURS
+  LAST_3_DAYS
+  LAST_7_DAYS
+  STALE
+  UNKNOWN
 }
 
 enum ApplicationStatus {
@@ -62,12 +71,16 @@ model Resume {
   rawText      String?     @db.Text
   parsedData   Json?
   extractedSkills String[] @default([])
+  parentId     String?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   user         UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent       Resume?     @relation("ResumeVersions", fields: [parentId], references: [id], onDelete: SetNull)
+  versions     Resume[]    @relation("ResumeVersions")
   analyses     ResumeAnalysis[]
 
   @@index([userId, createdAt])
+  @@index([parentId])
 }
 
 model ResumeAnalysis {
@@ -95,21 +108,30 @@ model ResumeAnalysis {
 }
 
 model JobListing {
-  id           String           @id @default(cuid())
-  source       String?
-  externalId   String?          @unique
-  company      String
-  title        String
-  location     String
-  type         JobType
-  salaryRange  String?
-  description  String
-  keywords     String[]
-  postedAt     DateTime?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-  applications JobApplication[]
-  matches      JobMatch[]
+  id              String           @id @default(cuid())
+  source          String
+  externalId      String?          @unique
+  company         String
+  title           String
+  location        String
+  type            JobType
+  salaryRange     String?
+  description     String           @db.Text
+  applyUrl        String?
+  duration        String?
+  experienceLevel String?
+  isInternship    Boolean          @default(false)
+  isFresherFriendly Boolean       @default(false)
+  freshnessBucket JobFreshnessBucket @default(UNKNOWN)
+  keywords        String[]         @default([])
+  postedAt        DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  applications    JobApplication[]
+  matches         JobMatch[]
+
+  @@index([freshnessBucket, postedAt])
+  @@index([isInternship, isFresherFriendly])
 }
 
 model JobMatch {
@@ -143,12 +165,21 @@ model JobApplication {
   @@index([userId, status])
 }
 
+enum InsightPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
 model AiInsight {
   id        String          @id @default(cuid())
   userId    String
   category  InsightCategory
   title     String
   content   String
+  priority  InsightPriority @default(MEDIUM)
+  isActionable Boolean      @default(false)
+  isCompleted  Boolean      @default(false)
   metadata  Json?
   createdAt DateTime        @default(now())
   user      UserProfile     @relation(fields: [userId], references: [id], onDelete: Cascade)

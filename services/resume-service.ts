@@ -188,6 +188,9 @@ export async function getLatestResumeForActor(
       parsedData: true,
       extractedSkills: true,
       parsedSkills: true,
+      targetRole: true,
+      summary: true,
+      name: true,
       createdAt: true,
       updatedAt: true,
       // rawText is intentionally excluded here to optimize serialization
@@ -259,7 +262,7 @@ function serializeStoredResume(resume: Resume) {
       fileName: resume.fileName ?? resume.name,
       fileType: resume.fileType ?? "application/octet-stream",
       fileSize: resume.fileSize ?? 0,
-      fileUrl: resume.fileUrl ?? "",
+      fileUrl: resume.fileUrl ?? null,
     },
     rawText: resume.rawText ?? parsedResume.summary ?? resume.summary ?? "Resume text unavailable.",
     parsedData: parsedResume,
@@ -267,6 +270,7 @@ function serializeStoredResume(resume: Resume) {
       resume.extractedSkills.length > 0
         ? resume.extractedSkills
         : resume.parsedSkills,
+    targetRole: resume.targetRole,
     createdAt: resume.createdAt.toISOString(),
     updatedAt: resume.updatedAt.toISOString(),
   });

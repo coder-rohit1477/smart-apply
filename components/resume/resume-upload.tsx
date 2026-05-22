@@ -8,21 +8,25 @@ import { ParsedResumePreview } from "@/components/resume/parsed-resume-preview";
 import { ResumeDropzone } from "@/components/resume/resume-dropzone";
 import { UploadError } from "@/components/resume/upload-error";
 import { UploadProgress } from "@/components/resume/upload-progress";
+import { OptimizationPanel } from "@/components/optimization/optimization-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { uploadResponseSchema, deleteResponseSchema } from "@/types/resume";
 import type { ResumeApiError, StoredResume } from "@/types/resume";
-import { BrainCircuit, FileText, Search } from "lucide-react";
+import { BrainCircuit, FileText, Search, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+import { useMounted } from "@/hooks/use-mounted";
 
 interface ResumeUploadProps {
   initialResume: StoredResume | null;
 }
 
 type UploadStage = "uploading" | "parsing" | "saving";
-type ViewTab = "preview" | "analysis" | "matching";
+type ViewTab = "preview" | "analysis" | "matching" | "optimization";
 
 export function ResumeUpload({ initialResume }: ResumeUploadProps) {
+  const mounted = useMounted();
   const [resume, setResume] = useState<StoredResume | null>(initialResume);
   const [error, setError] = useState<ResumeApiError | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -45,6 +49,8 @@ export function ResumeUpload({ initialResume }: ResumeUploadProps) {
 
     return () => window.clearInterval(timer);
   }, [isUploading]);
+
+  if (!mounted) return <PreviewSkeleton />;
 
   async function handleUpload(file: File) {
     setLastFile(file);
@@ -197,30 +203,43 @@ export function ResumeUpload({ initialResume }: ResumeUploadProps) {
               icon={BrainCircuit}
               label="AI Analysis"
             />
-            <TabButton 
-              active={activeTab === "matching"} 
+            <TabButton
+              active={activeTab === "matching"}
               onClick={() => setActiveTab("matching")}
               icon={Search}
               label="Job Matching"
             />
-          </div>
+            <TabButton
+              active={activeTab === "optimization"}
+              onClick={() => setActiveTab("optimization")}
+              icon={Sparkles}
+              label="AI Optimization"
+            />
+            </div>
 
-          {activeTab === "preview" && (
+            {activeTab === "preview" && (
             <ParsedResumePreview
               resume={resume}
               onDelete={handleDelete}
               isDeleting={isDeleting}
             />
-          )}
+            )}
 
-          {activeTab === "analysis" && (
+            {activeTab === "analysis" && (
             <AiAnalysis resume={resume} />
-          )}
+            )}
 
-          {activeTab === "matching" && (
+            {activeTab === "matching" && (
             <JobMatcher resume={resume} />
-          )}
-        </div>
+            )}
+
+            {activeTab === "optimization" && (
+            <OptimizationPanel 
+              resumeId={resume.id} 
+              parsedData={resume.parsedData}
+              targetRole={resume.targetRole || undefined}
+            />
+            )}        </div>
       ) : (
         <PreviewSkeleton />
       )}
