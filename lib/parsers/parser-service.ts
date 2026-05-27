@@ -27,7 +27,7 @@ export async function parseResumeBuffer(input: {
   const extension = path.extname(input.fileName).toLowerCase();
   console.log("[Parser Service] Detected extension:", extension);
   
-  let rawContent = "";
+  let rawContent: string;
   
   try {
     if (extension === ".pdf") {
@@ -71,16 +71,16 @@ export async function parseResumeBuffer(input: {
     const message = error.message || "";
     
     if (message.includes("PASSWORD")) {
-      throw new Error("This PDF is password protected and cannot be parsed.");
+      throw new Error("This PDF is password protected and cannot be parsed.", { cause: error });
     }
     if (message.includes("INVALID") || message.includes("CORRUPTED")) {
-      throw new Error("The resume file appears to be corrupted.");
+      throw new Error("The resume file appears to be corrupted.", { cause: error });
     }
     if (message === "UNSUPPORTED_FILE_TYPE") {
-      throw new Error("Only PDF and DOCX files are supported.");
+      throw new Error("Only PDF and DOCX files are supported.", { cause: error });
     }
     if (message === "EMPTY_OR_TOO_SHORT_CONTENT") {
-      throw new Error("We couldn't find enough text in your resume. Is it a scanned image?");
+      throw new Error("We couldn't find enough text in your resume. Is it a scanned image?", { cause: error });
     }
 
     // Re-throw if it's already a formatted error or a generic one.

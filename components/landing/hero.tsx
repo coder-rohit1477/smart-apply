@@ -111,8 +111,8 @@ export function Hero({
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {topMatch.missingSkills.map((skill) => (
-                      <Badge key={skill} variant="outline">
-                        {skill}
+                      <Badge key={skill.name} variant="outline">
+                        {skill.name}
                       </Badge>
                     ))}
                   </div>

@@ -177,7 +177,7 @@ export class NaukriProvider implements JobProvider {
 
       try {
         return await scrapeListingPage(this.name, url, async (page): Promise<UnifiedJob[]> => {
-          const jobs = await page
+          const rawJobs = await page
             .locator(".srp-jobtuple-wrapper, article.jobTuple, .cust-job-tuple")
             .evaluateAll((elements) =>
               elements.map((element) => {
@@ -191,7 +191,6 @@ export class NaukriProvider implements JobProvider {
                 const location = pickText(".locWdth, .location");
                 const experienceLevel = pickText(".expwdth, .experience");
                 const freshnessLabel = pickText(".job-post-day, .job-post-day-time, .time");
-                const postedAt = freshnessLabel;
 
                 return {
                   externalId: `naukri-${href ?? pickText("a.title, a[title]")}-${pickText(".comp-name, .companyInfo a")}`,
@@ -199,25 +198,24 @@ export class NaukriProvider implements JobProvider {
                   title: pickText("a.title, a[title]"),
                   company: pickText(".comp-name, .companyInfo a"),
                   location,
-                  type: /remote/i.test(location) ? "REMOTE" : "ONSITE",
                   description: pickText(".job-desc, .job-description"),
                   applyUrl: href,
-                  duration: null,
                   salaryRange: pickText(".sal-wrap, .salary"),
                   experienceLevel,
                   isInternship: /intern/i.test(pickText("a.title, a[title]")),
                   isFresherFriendly: /fresher|0|1 year|entry/i.test(experienceLevel),
-                  freshnessBucket: postedAt,
-                  keywords: Array.from(element.querySelectorAll(".tags-gt li, .tags li")).map((node) => (node.textContent ?? "").trim()).filter(Boolean),
-                  postedAt: postedAt,
+                  freshnessLabel,
+                  keywords: Array.from(element.querySelectorAll(".tags-gt li, .tags li"))
+                    .map((node) => (node.textContent ?? "").trim())
+                    .filter(Boolean),
                 };
               }),
             )
             .catch(() => []);
 
           const normalizedJobs: UnifiedJob[] = [];
-          for (const job of jobs) {
-            const postedAt = parseRelativePostedAt(typeof job.postedAt === "string" ? job.postedAt : null);
+          for (const job of rawJobs) {
+            const postedAt = parseRelativePostedAt(job.freshnessLabel ?? null);
             if (!job.title || !job.company || !job.description) {
               continue;
             }
@@ -236,6 +234,7 @@ export class NaukriProvider implements JobProvider {
               experienceLevel: job.experienceLevel || null,
               isInternship: job.isInternship,
               isFresherFriendly: job.isFresherFriendly,
+              // Fix: always use classifyFreshness to get a proper JobFreshnessBucket enum value
               freshnessBucket: postedAt ? classifyFreshness(postedAt) : JobFreshnessBucket.UNKNOWN,
               keywords: normalizeKeywords(job.keywords),
               postedAt,
@@ -292,7 +291,9 @@ export class WellfoundProvider implements JobProvider {
               continue;
             }
 
-            const postedAt = parseRelativePostedAt(job.text.match(/(\d+\s+(?:hour|hours|day|days|week|weeks)\s+ago|just now|few hours ago)/i)?.[0] ?? null);
+            const postedAt = parseRelativePostedAt(
+              job.text.match(/(\d+\s+(?:hour|hours|day|days|week|weeks)\s+ago|just now|few hours ago)/i)?.[0] ?? null,
+            );
             const locationMatch =
               job.text.match(/remote.*india|india remote|bangalore|bengaluru|pune|hyderabad|gurgaon|gurugram|india/i)?.[0] ?? "India";
             const company = job.text

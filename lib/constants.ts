@@ -13,7 +13,7 @@ export const APP_DESCRIPTION =
 
 export const NAV_LINKS = [
   { href: "#platform", label: "Platform" },
-  { href: "#workflow", label: "Workflow" },
+  { href: "/workflow", label: "Workflow" },
   { href: "/dashboard", label: "Dashboard" },
 ] as const;
 

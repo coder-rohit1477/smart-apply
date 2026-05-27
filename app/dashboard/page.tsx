@@ -15,7 +15,8 @@ export default async function DashboardPage() {
   await auth.protect();
 
   const user = await currentUser();
-  const snapshot = await getDashboardSnapshot(user?.id);
+  // Pass the Clerk user ID so getResumeProfile can look up the real resume
+  const snapshot = await getDashboardSnapshot(user?.id ?? undefined);
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-10 px-6 py-10">

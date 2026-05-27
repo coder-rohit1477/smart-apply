@@ -1,13 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { 
-  CheckCircle2, 
-  ChevronRight, 
-  HelpCircle, 
-  Search, 
-  Target, 
-  XCircle 
+import {
+  CheckCircle2,
+  Search,
+  Target,
+  XCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,17 +43,18 @@ export function JobMatcher({ resume }: JobMatcherProps) {
     try {
       const response = await fetch("/api/ai/job-match", {
         method: "POST",
-        body: JSON.stringify({ 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           resumeId: resume.id,
-          jobDescription 
+          jobDescription,
         }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Matching failed");
-      
+
       setMatchResult(data.match);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Matching failed");
     } finally {
       setIsMatching(false);
     }
@@ -84,8 +83,8 @@ export function JobMatcher({ resume }: JobMatcherProps) {
             <p className="text-xs text-destructive">{error}</p>
           )}
           <div className="flex justify-end">
-            <Button 
-              onClick={startMatching} 
+            <Button
+              onClick={startMatching}
               disabled={isMatching || !jobDescription.trim()}
               className="rounded-full"
             >
@@ -121,8 +120,11 @@ export function JobMatcher({ resume }: JobMatcherProps) {
                   <circle
                     className={cn(
                       "transition-all duration-1000 ease-out",
-                      matchResult.matchScore >= 80 ? "stroke-emerald-500" : 
-                      matchResult.matchScore >= 60 ? "stroke-amber-500" : "stroke-destructive"
+                      matchResult.matchScore >= 80
+                        ? "stroke-emerald-500"
+                        : matchResult.matchScore >= 60
+                          ? "stroke-amber-500"
+                          : "stroke-destructive",
                     )}
                     strokeWidth="8"
                     strokeDasharray={264}
@@ -141,8 +143,11 @@ export function JobMatcher({ resume }: JobMatcherProps) {
               </div>
               <h4 className="font-semibold">Match Quality</h4>
               <p className="text-xs text-muted-foreground">
-                {matchResult.matchScore >= 80 ? "Strong fit for this role." : 
-                 matchResult.matchScore >= 60 ? "Moderate fit. Some gaps detected." : "Low fit. Significant gaps found."}
+                {matchResult.matchScore >= 80
+                  ? "Strong fit for this role."
+                  : matchResult.matchScore >= 60
+                    ? "Moderate fit. Some gaps detected."
+                    : "Low fit. Significant gaps found."}
               </p>
             </Card>
 
@@ -175,12 +180,13 @@ export function JobMatcher({ resume }: JobMatcherProps) {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {matchResult.matchedSkills.map((skill) => (
-                    <Badge key={skill} variant="secondary" className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20">
-                      {skill}
-                    </Badge>
-                  ))}
-                  {matchResult.matchedSkills.length === 0 && (
+                  {matchResult.matchedSkills.length > 0 ? (
+                    matchResult.matchedSkills.map((skill) => (
+                      <Badge key={skill} variant="secondary" className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20">
+                        {skill}
+                      </Badge>
+                    ))
+                  ) : (
                     <p className="text-sm text-muted-foreground">No specific matching skills identified.</p>
                   )}
                 </div>
@@ -196,18 +202,44 @@ export function JobMatcher({ resume }: JobMatcherProps) {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {matchResult.missingSkills.map((skill) => (
-                    <Badge key={skill} variant="secondary" className="bg-destructive/10 text-destructive hover:bg-destructive/20">
-                      {skill}
-                    </Badge>
-                  ))}
-                  {matchResult.missingSkills.length === 0 && (
+                  {matchResult.missingSkills.length > 0 ? (
+                    matchResult.missingSkills.map((skill) => (
+                      <Badge key={skill} variant="secondary" className="bg-destructive/10 text-destructive hover:bg-destructive/20">
+                        {skill}
+                      </Badge>
+                    ))
+                  ) : (
                     <p className="text-sm text-muted-foreground">Great! You have all the critical skills listed.</p>
                   )}
                 </div>
               </CardContent>
             </Card>
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Target className="h-5 w-5 text-primary" />
+                Skills Gap Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border bg-card p-4 text-center">
+                  <p className="text-2xl font-bold text-emerald-500">{matchResult.matchedSkills.length}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Skills Matched</p>
+                </div>
+                <div className="rounded-xl border bg-card p-4 text-center">
+                  <p className="text-2xl font-bold text-destructive">{matchResult.missingSkills.length}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Skills Missing</p>
+                </div>
+                <div className="rounded-xl border bg-card p-4 text-center">
+                  <p className="text-2xl font-bold text-primary">{matchResult.matchScore}%</p>
+                  <p className="text-xs text-muted-foreground mt-1">Overall Fit</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

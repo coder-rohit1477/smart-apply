@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import {
@@ -55,7 +56,7 @@ const fullResumeAnalysisSchema = z.object({
     experience: 0,
     projects: 0,
     skills: 0,
-    education: 0
+    education: 0,
   }),
   prioritizedActions: z.array(z.object({
     impact: z.enum(["HIGH", "MEDIUM"]),
@@ -131,43 +132,79 @@ export async function performFullResumeAnalysis(
     .replace("{resumeText}", resume.rawText)
     .replace("{jobDescriptionInstruction}", jobDescriptionInstruction);
 
-  let modelName = getPrimaryGeminiModel();
-  let degraded = false;
-  let fallbackReason: string | null = null;
-  let analysisData: FullResumeAnalysis;
+  const generation = await generateStructuredContentWithFallback<FullResumeAnalysis>(prompt);
+  
+  let modelName: string = generation.model;
+  let degraded: boolean = generation.usedFallbackModel;
+  let fallbackReason: string | undefined;
+  let analysisData: FullResumeAnalysis; // This will be assigned conditionally
 
-  try {
-    const generation = await generateStructuredContentWithFallback<FullResumeAnalysis>(prompt);
-    modelName = generation.model;
-
-    const parsedAnalysis = fullResumeAnalysisSchema.parse(generation.data);
-
-    analysisData = normalizeAnalysis(parsedAnalysis);
-    degraded = generation.usedFallbackModel;
-  } catch (error) {
-    const normalizedError =
-      error instanceof GeminiServiceError
-        ? error
-        : new GeminiServiceError("Resume analysis failed.", {
-            status: 503,
-            code: "analysis_failed",
-            cause: error,
-          });
-
-    degraded = true;
-    fallbackReason = normalizedError.message;
+  if (!generation.data) {
+    fallbackReason = "All Gemini models unavailable or returned malformed data.";
     analysisData = createResumeAnalysisFallback(
       resume.rawText,
       jobDescription,
-      normalizedError.message,
+      fallbackReason,
     );
 
     console.error("[AI Resume Service] Falling back to local analysis", {
       resumeId,
-      code: normalizedError.code,
-      message: normalizedError.message,
+      code: "gemini_unavailable",
+      message: fallbackReason,
     });
+  } else {
+    try {
+      // Normalize Gemini field name variants before Zod parsing.
+      // Gemini sometimes returns `areasForImprovement` instead of `weaknesses`.
+      const raw = generation.data as Record<string, unknown>;
+      if (raw.areasForImprovement !== undefined && raw.weaknesses === undefined) {
+        raw.weaknesses = raw.areasForImprovement;
+      }
+
+      const parsedAnalysis = fullResumeAnalysisSchema.parse(raw);
+      analysisData = normalizeAnalysis(parsedAnalysis);
+    } catch (parseError) {
+      fallbackReason = `Failed to parse Gemini analysis: ${parseError instanceof Error ? parseError.message : String(parseError)}`;
+      analysisData = createResumeAnalysisFallback(
+        resume.rawText,
+        jobDescription,
+        fallbackReason,
+      );
+
+      console.error("[AI Resume Service] Falling back to local analysis due to parse error", {
+        resumeId,
+        code: "analysis_parse_failed",
+        message: fallbackReason,
+        originalData: generation.data,
+      });
+    }
   }
+
+  // Build the JSON payload explicitly so Prisma receives a well-typed InputJsonObject
+  const analysisDataJson: Prisma.InputJsonObject = {
+    atsScore: analysisData.atsScore,
+    formattingScore: analysisData.formattingScore,
+    impactScore: analysisData.impactScore,
+    readinessScore: analysisData.readinessScore,
+    sectionScores: analysisData.sectionScores as unknown as Prisma.InputJsonObject,
+    prioritizedActions: analysisData.prioritizedActions as unknown as Prisma.InputJsonValue[],
+    strengths: analysisData.strengths,
+    weaknesses: analysisData.weaknesses,
+    recommendations: analysisData.recommendations,
+    executiveSummary: analysisData.executiveSummary,
+    topThreeChanges: analysisData.topThreeChanges,
+    missingKeywords: analysisData.missingKeywords,
+    matchedKeywords: analysisData.matchedKeywords,
+    technicalGaps: analysisData.technicalGaps,
+    softSkillGaps: analysisData.softSkillGaps,
+    upskillingPlan: analysisData.upskillingPlan,
+    metadata: {
+      degraded,
+      fallbackReason,
+      generatedBy: degraded ? "local-fallback" : "gemini",
+      model: modelName,
+    },
+  };
 
   const savedAnalysis = await prisma.resumeAnalysis.create({
     data: {
@@ -188,15 +225,7 @@ export async function performFullResumeAnalysis(
           ...analysisData.topThreeChanges,
         ]),
       ),
-      analysisData: {
-        ...analysisData,
-        metadata: {
-          degraded,
-          fallbackReason,
-          generatedBy: degraded ? "local-fallback" : "gemini",
-          model: modelName,
-        },
-      } as never,
+      analysisData: analysisDataJson,
     },
   });
 

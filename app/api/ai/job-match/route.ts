@@ -5,6 +5,8 @@ import { performAiJobMatch } from "@/lib/ai/services/ai-job-match-service";
 import { ensureUserProfile } from "@/lib/user-profiles";
 import { prisma } from "@/lib/prisma";
 
+export const runtime = "nodejs";
+
 const matchSchema = z.object({
   resumeId: z.string().min(1),
   jobDescription: z.string().min(10),

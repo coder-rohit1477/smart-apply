@@ -10,21 +10,40 @@ export function buildAiRecommendations(
   matches: MatchInsight[],
   pipeline: PipelineItem[],
 ): AiRecommendation[] {
+  // Defensive checks and fallbacks
   const topMatch = matches[0];
-  const firstGap = topMatch?.missingSkills[0] ?? "case-study storytelling";
+  const firstGap = topMatch?.missingSkills[0] ?? "critical technical skills"; // More generic fallback
   const nextPipelineItem = pipeline[0];
+
+  const safeCompany = topMatch?.company ?? "priority roles";
+  const safeNextCompany = nextPipelineItem?.company ?? "current top";
+
+  const safeStrength = profile.strengths.length > 0 ? profile.strengths[0].toLowerCase() : "your key strengths";
+
+  // Graceful fallback for recommendations if no matches or pipeline items
+  if (!topMatch && !nextPipelineItem) {
+    return [
+      {
+        id: "general-advice",
+        title: "Strengthen overall profile alignment",
+        description:
+          "Analyze job descriptions to identify common keywords and tailor your resume to highlight relevant experience and skills. This improves ATS compatibility and recruiter interest.",
+        impact: "High impact",
+      },
+    ];
+  }
 
   return [
     {
       id: "tailor-resume",
-      title: `Tailor keywords for ${topMatch?.company ?? "priority roles"}`,
-      description: `Add stronger evidence for ${firstGap} and keep ${profile.strengths[0].toLowerCase()} above the fold. This increases both ATS coverage and recruiter skim quality.`,
+      title: `Tailor keywords for ${safeCompany}`,
+      description: `Add stronger evidence for ${firstGap} and keep ${safeStrength} above the fold. This increases both ATS coverage and recruiter skim quality.`,
       impact: "High impact",
     },
     {
       id: "follow-up-sequence",
       title: "Schedule a proactive follow-up",
-      description: `Create a follow-up message around the ${nextPipelineItem?.company ?? "current top"} process so the application does not stall after submission.`,
+      description: `Create a follow-up message around the ${safeNextCompany} process so the application does not stall after submission.`,
       impact: "Medium impact",
     },
     {

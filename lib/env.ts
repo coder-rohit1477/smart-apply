@@ -28,6 +28,7 @@ const geminiKey = z.string().trim().default("");
 
 const serverEnvSchema = z.object({
   DATABASE_URL: databaseUrl,
+  DIRECT_URL: z.string().trim().optional(),
   CLERK_SECRET_KEY: nonEmptyString("CLERK_SECRET_KEY"),
   GEMINI_API_KEY: geminiKey,
   GEMINI_MODEL: z.string().trim().min(1).default("gemini-2.5-flash"),
@@ -87,6 +88,7 @@ export function getServerEnv() {
 
     serverEnvCache = parseEnv("server", serverEnvSchema, {
       DATABASE_URL: process.env.DATABASE_URL,
+      DIRECT_URL: process.env.DIRECT_URL,
       CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY,
       GEMINI_API_KEY: rawGeminiKey,
       GEMINI_MODEL: process.env.GEMINI_MODEL,

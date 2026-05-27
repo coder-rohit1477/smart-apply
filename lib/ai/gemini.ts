@@ -34,13 +34,15 @@ export class GeminiServiceError extends Error {
 }
 
 export interface GeminiGenerationResult {
+  success: boolean;
   text: string;
   model: string;
   usedFallbackModel: boolean;
+  error?: string;
 }
 
 export interface GeminiStructuredResult<T> extends GeminiGenerationResult {
-  data: T;
+  data: T | null;
 }
 
 let cachedClient: GoogleGenerativeAI | null | undefined;
@@ -82,22 +84,14 @@ export function hasGeminiApiKey() {
   return Boolean(getGeminiApiKey());
 }
 
-export function getConfiguredGeminiModels() {
-  return Array.from(
-    new Set(
-      [
-        process.env.GEMINI_MODEL?.trim() ?? "",
-        process.env.GEMINI_FALLBACK_MODEL?.trim() ?? "",
-        DEFAULT_GEMINI_MODEL,
-        DEFAULT_GEMINI_FALLBACK_MODEL,
-      ]
-        .filter(Boolean),
-    ),
-  );
-}
+const MODEL_FALLBACKS = [
+  process.env.GEMINI_MODEL || "gemini-2.5-flash",
+  process.env.GEMINI_FALLBACK_MODEL || "gemini-2.5-flash-lite",
+  "gemini-2.0-flash",
+];
 
 export function getPrimaryGeminiModel() {
-  return getConfiguredGeminiModels()[0] ?? DEFAULT_GEMINI_MODEL;
+  return MODEL_FALLBACKS[0] ?? DEFAULT_GEMINI_MODEL;
 }
 
 function getModel(modelName: string): GenerativeModel {
@@ -113,7 +107,7 @@ function getModel(modelName: string): GenerativeModel {
   return client.getGenerativeModel({
     model: modelName,
     generationConfig: {
-      temperature: 0.1, // Lowered for more stability in JSON
+      temperature: 0.1,
       topP: 0.8,
       maxOutputTokens: 4096,
       responseMimeType: "application/json",
@@ -122,14 +116,14 @@ function getModel(modelName: string): GenerativeModel {
   });
 }
 
-function normalizeGeminiError(error: unknown, modelName: string) {
+function normalizeGeminiError(error: unknown, _modelName: string) {
   if (error instanceof GeminiServiceError) {
     return error;
   }
 
   const message = error instanceof Error ? error.message : String(error);
   const lowerMessage = message.toLowerCase();
-  
+
   if (lowerMessage.includes("quota") || lowerMessage.includes("429")) {
     return new GeminiServiceError("Rate limit exceeded.", { status: 429, code: "rate_limited", retryable: true });
   }
@@ -231,14 +225,41 @@ export function parseGeminiJson<T>(text: string): T {
   }
 }
 
+let lastRateLimitFailureTime: number = 0;
+const GEMINI_COOLDOWN_DURATION = 60 * 1000; // 60 seconds
+let loggedCooldownWarning = false; // To prevent spamming console during cooldown
+let lastConsoleErrorForRateLimit: string | undefined; // To prevent spamming "rate limit exceeded" messages
+
+// ... (rest of the file)
+
 export async function generateContentWithFallback(
   prompt: string,
-  options: { retryOnParseFailure?: boolean } = { retryOnParseFailure: true }
 ): Promise<GeminiGenerationResult> {
-  const models = getConfiguredGeminiModels();
-  let lastError: any;
+  // Check for active cooldown
+  if (Date.now() - lastRateLimitFailureTime < GEMINI_COOLDOWN_DURATION) {
+    if (!loggedCooldownWarning) {
+      console.warn("[Gemini] Gemini API is in cooldown period. Returning fallback immediately.");
+      loggedCooldownWarning = true;
+      lastConsoleErrorForRateLimit = undefined; // Reset last error message to allow a new one after cooldown starts
+    }
+    return {
+      success: false,
+      text: "",
+      model: "none",
+      usedFallbackModel: false, // Not used a fallback model, entire system is in cooldown
+      error: "Gemini API is in cooldown period. Try again later.",
+    };
+  } else {
+    // Reset warning flag when cooldown expires
+    if (loggedCooldownWarning) { // Only log reset if it was previously active
+      console.info("[Gemini] Gemini API cooldown has expired.");
+    }
+    loggedCooldownWarning = false;
+    lastConsoleErrorForRateLimit = undefined; // Clear the last error message as cooldown has passed
+  }
 
-  // Append strict formatting instructions globally
+  let lastError: GeminiServiceError | undefined;
+
   const hardenedPrompt = `${prompt}
 
 IMPORTANT RESPONSE RULES:
@@ -247,13 +268,22 @@ IMPORTANT RESPONSE RULES:
 - No explanations.
 - No backticks.`;
 
-  for (const [index, modelName] of models.entries()) {
+  for (const [index, modelName] of MODEL_FALLBACKS.entries()) {
+    if (!modelName) {
+      continue; // Skip if modelName is empty or undefined
+    }
     try {
       const model = getModel(modelName);
       const result = await model.generateContent(hardenedPrompt);
       const text = result.response.text();
 
+      // If successful, reset cooldown timer and error logging state
+      lastRateLimitFailureTime = 0;
+      loggedCooldownWarning = false;
+      lastConsoleErrorForRateLimit = undefined;
+      
       return {
+        success: true,
         text,
         model: modelName,
         usedFallbackModel: index > 0,
@@ -261,17 +291,32 @@ IMPORTANT RESPONSE RULES:
     } catch (error) {
       const normalizedError = normalizeGeminiError(error, modelName);
       lastError = normalizedError;
-      
-      console.error(`[Gemini] Model ${modelName} failed`, normalizedError.message);
-      
-      if (normalizedError.code === "rate_limited" || normalizedError.status === 503) {
-        continue; // Try next model
+
+      // Only log unique rate limit errors during the cooldown detection phase
+      if (normalizedError.code === "rate_limited") {
+        if (lastConsoleErrorForRateLimit !== normalizedError.message) {
+          console.error(`[Gemini] Model ${modelName} failed due to rate limit:`, normalizedError.message);
+          lastConsoleErrorForRateLimit = normalizedError.message;
+        }
+        lastRateLimitFailureTime = Date.now(); // Set cooldown timestamp
+        loggedCooldownWarning = true; // Mark that cooldown has started, so next calls will log once.
+        continue; // Try next fallback model
+      } else {
+        // Log other errors normally
+        console.error(`[Gemini] Model ${modelName} failed with non-rate-limit error:`, normalizedError.message);
       }
-      break; 
+      break; // For non-rate-limit errors, stop trying fallback models
     }
   }
 
-  throw lastError || new Error("Gemini request failed");
+  // All models failed (either all rate-limited, or one failed with a non-rate-limit error)
+  return {
+    success: false,
+    text: "",
+    model: "none",
+    usedFallbackModel: true,
+    error: lastError?.message || "All Gemini models unavailable",
+  };
 }
 
 export async function generateStructuredContentWithFallback<T>(
@@ -293,30 +338,58 @@ No backticks.`;
 
     const generation = await generateContentWithFallback(retryPrompt);
 
+    // If generateContentWithFallback failed, propagate its failure
+    if (!generation.success) {
+      return {
+        ...generation,
+        data: null, // No structured data on generation failure
+      };
+    }
+
     try {
       return {
         ...generation,
         data: parseGeminiJson<T>(generation.text),
       };
     } catch (error) {
+      // Existing error handling for parseGeminiJson
       if (
         error instanceof GeminiServiceError &&
         error.code === "invalid_json" &&
         attempt === 0
       ) {
-        parseError = error;
+        finalParseError = error; // Store the error for the final return if repair fails
         console.warn("[Gemini] Retrying once after malformed JSON response.", {
           model: generation.model,
         });
-        continue;
+        continue; // Retry with modified prompt
       }
 
-      throw error;
+      // If parseGeminiJson throws for any other reason or after the second attempt,
+      // return a failure result instead of rethrowing.
+      const parseFailError = error instanceof GeminiServiceError
+        ? error
+        : new GeminiServiceError("Failed to parse AI response.", { cause: error });
+
+      return {
+        success: false,
+        text: generation.text,
+        model: generation.model,
+        usedFallbackModel: generation.usedFallbackModel,
+        data: null,
+        error: parseFailError.message,
+      };
     }
   }
 
-  throw parseError ?? new GeminiServiceError("Gemini returned malformed JSON twice.", {
-    status: 502,
-    code: "invalid_json",
-  });
+  // If we reach here, it means parsing failed twice.
+  // Return the last parse error as a failed result, instead of throwing.
+  return {
+    success: false,
+    text: "", // No successful text from which to parse
+    model: "none", // Indicate no model produced valid structured output
+    usedFallbackModel: true, // Indicates multiple attempts/models failed
+    data: null,
+    error: finalParseError?.message || "Gemini returned malformed JSON twice.",
+  };
 }

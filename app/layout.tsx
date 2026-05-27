@@ -37,6 +37,11 @@ export const metadata: Metadata = {
     title: `${APP_NAME} | AI Job Platform`,
     description: APP_DESCRIPTION,
   },
+  icons: {
+    icon: "/file.svg", // Using file.svg from the public directory as the primary icon
+    shortcut: "/file.svg", // Optional: For older browsers/devices
+    apple: "/apple-touch-icon.png", // Optional: If you have an Apple touch icon
+  },
 };
 
 export default function RootLayout({

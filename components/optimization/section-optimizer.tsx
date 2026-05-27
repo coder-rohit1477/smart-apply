@@ -57,7 +57,7 @@ export function SectionOptimizer({
     setIsAnalyzing(true);
     setError(null);
     try {
-      const response = await analyzeSectionAction(section, content, targetRole);
+      const response = await analyzeSectionAction(section, content, mode, targetRole);
       setAnalysis(response);
     } catch (err) {
       setError("Failed to analyze section.");

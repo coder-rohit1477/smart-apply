@@ -4,6 +4,8 @@ import { z } from "zod";
 import { performFullResumeAnalysis } from "@/lib/ai/services/ai-resume-service";
 import { prisma } from "@/lib/prisma";
 
+export const runtime = "nodejs";
+
 const analyzeSchema = z.object({
   resumeId: z.string().min(1),
   jobDescription: z.string().optional(),
@@ -30,7 +32,7 @@ export async function POST(req: Request) {
     const analysis = await performFullResumeAnalysis(
       resumeId,
       userProfile.id,
-      jobDescription
+      jobDescription,
     );
 
     return NextResponse.json({

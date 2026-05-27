@@ -8,9 +8,9 @@ export function buildJobMatches(
 ): MatchInsight[] {
   return jobs
     .map((job) => {
-      const overlap = getKeywordOverlap(profile, job.skills);
+      const overlap = getKeywordOverlap(profile, job.skills.map(skill => skill.name));
       const missingSkills = job.skills.filter(
-        (skill) => !overlap.some((match) => match.toLowerCase() === skill.toLowerCase()),
+        (skill) => !overlap.some((match) => match.toLowerCase() === skill.name.toLowerCase()),
       );
       const overlapRatio = overlap.length / job.skills.length;
       const seniorityBoost =
@@ -25,7 +25,7 @@ export function buildJobMatches(
         salary: job.salary,
         summary: job.summary,
         matchScore,
-        atsScore: calculateAtsScore(profile, job.skills),
+        atsScore: calculateAtsScore(profile, job.skills.map(skill => skill.name)),
         missingSkills: missingSkills.slice(0, 3),
         stage: job.stage,
       } satisfies MatchInsight;

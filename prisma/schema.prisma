@@ -5,7 +5,6 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 enum JobType {
@@ -40,44 +39,45 @@ enum InsightCategory {
 }
 
 model UserProfile {
-  id           String           @id @default(cuid())
-  clerkUserId  String           @unique
-  email        String           @unique
-  firstName    String?
-  lastName     String?
-  headline     String?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-  resumes      Resume[]
+  id             String           @id @default(cuid())
+  clerkUserId    String           @unique
+  email          String           @unique
+  firstName      String?
+  lastName       String?
+  headline       String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  resumes        Resume[]
   resumeAnalyses ResumeAnalysis[]
-  jobMatches   JobMatch[]
-  applications JobApplication[]
-  insights     AiInsight[]
+  jobMatches     JobMatch[]
+  applications   JobApplication[]
+  insights       AiInsight[]
 }
 
 model Resume {
-  id           String      @id @default(cuid())
-  userId       String
-  name         String
-  version      String?
-  targetRole   String?
-  summary      String?
-  atsScore     Int         @default(0)
-  parsedSkills String[]    @default([])
-  fileName     String?
-  fileType     String?
-  fileSize     Int?
-  fileUrl      String?
-  rawText      String?     @db.Text
-  parsedData   Json?
-  extractedSkills String[] @default([])
-  parentId     String?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  user         UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parent       Resume?     @relation("ResumeVersions", fields: [parentId], references: [id], onDelete: SetNull)
-  versions     Resume[]    @relation("ResumeVersions")
-  analyses     ResumeAnalysis[]
+  id              String      @id @default(cuid())
+  userId          String
+  /// Friendly display name; defaults to the uploaded file name if not specified.
+  name            String      @default("Untitled Resume")
+  version         String?
+  targetRole      String?
+  summary         String?
+  atsScore        Int         @default(0)
+  parsedSkills    String[]    @default([])
+  fileName        String?
+  fileType        String?
+  fileSize        Int?
+  fileUrl         String?
+  rawText         String?     @db.Text
+  parsedData      Json?
+  extractedSkills String[]    @default([])
+  parentId        String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  user            UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent          Resume?     @relation("ResumeVersions", fields: [parentId], references: [id], onDelete: SetNull)
+  versions        Resume[]    @relation("ResumeVersions")
+  analyses        ResumeAnalysis[]
 
   @@index([userId, createdAt])
   @@index([parentId])
@@ -108,27 +108,27 @@ model ResumeAnalysis {
 }
 
 model JobListing {
-  id              String           @id @default(cuid())
-  source          String
-  externalId      String?          @unique
-  company         String
-  title           String
-  location        String
-  type            JobType
-  salaryRange     String?
-  description     String           @db.Text
-  applyUrl        String?
-  duration        String?
-  experienceLevel String?
-  isInternship    Boolean          @default(false)
-  isFresherFriendly Boolean       @default(false)
-  freshnessBucket JobFreshnessBucket @default(UNKNOWN)
-  keywords        String[]         @default([])
-  postedAt        DateTime?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  applications    JobApplication[]
-  matches         JobMatch[]
+  id                String             @id @default(cuid())
+  source            String
+  externalId        String?            @unique
+  company           String
+  title             String
+  location          String
+  type              JobType
+  salaryRange       String?
+  description       String             @db.Text
+  applyUrl          String?
+  duration          String?
+  experienceLevel   String?
+  isInternship      Boolean            @default(false)
+  isFresherFriendly Boolean            @default(false)
+  freshnessBucket   JobFreshnessBucket @default(UNKNOWN)
+  keywords          String[]           @default([])
+  postedAt          DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  applications      JobApplication[]
+  matches           JobMatch[]
 
   @@index([freshnessBucket, postedAt])
   @@index([isInternship, isFresherFriendly])
@@ -172,15 +172,15 @@ enum InsightPriority {
 }
 
 model AiInsight {
-  id        String          @id @default(cuid())
-  userId    String
-  category  InsightCategory
-  title     String
-  content   String
-  priority  InsightPriority @default(MEDIUM)
-  isActionable Boolean      @default(false)
-  isCompleted  Boolean      @default(false)
-  metadata  Json?
-  createdAt DateTime        @default(now())
-  user      UserProfile     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String          @id @default(cuid())
+  userId       String
+  category     InsightCategory
+  title        String
+  content      String
+  priority     InsightPriority @default(MEDIUM)
+  isActionable Boolean         @default(false)
+  isCompleted  Boolean         @default(false)
+  metadata     Json?
+  createdAt    DateTime        @default(now())
+  user         UserProfile     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

@@ -1,11 +1,10 @@
 import { z } from "zod";
 
 import {
-  GeminiServiceError,
-  generateStructuredContentWithFallback,
-  getPrimaryGeminiModel,
+  generateContentWithFallback,
+  parseGeminiJson,
 } from "../gemini";
-import { createJobMatchFallback } from "./ai-fallbacks";
+import { calculateLocalJobMatch } from "./heuristic-service";
 
 export interface JobMatchResult {
   matchScore: number;
@@ -34,15 +33,18 @@ function normalizeMatchResult(result: JobMatchResult): JobMatchResult {
 }
 
 /**
- * Modernized AI Job Matcher with resilient Gemini integration.
+ * Modernized Job Matcher with Heuristic-First logic.
  */
 export async function performAiJobMatch(
   resumeText: string,
   jobDescription: string,
+  mode: string = "General"
 ): Promise<JobMatchResult> {
-  console.log("[AI Job Match] Performing match", {
-    model: getPrimaryGeminiModel(),
-  });
+  // STEP 1: Always perform local heuristic match (FAST & FREE)
+  const localMatch = calculateLocalJobMatch(resumeText, jobDescription, mode);
+
+  // STEP 2: Selective Gemini enhancement
+  console.log("[AI Job Match] Enhancing match via Gemini");
 
   const prompt = `
 You are a senior technical recruiter. Match the following resume against the job description.
@@ -64,30 +66,30 @@ Return ONLY a JSON object:
   }
 `;
 
+  const generation = await generateContentWithFallback(prompt);
+  
+  if (generation.error) {
+    console.log("[AI Job Match] Gemini unavailable, using local match");
+    return localMatch;
+  }
+
   try {
-    const generation = await generateStructuredContentWithFallback<JobMatchResult>(prompt);
-    return normalizeMatchResult(
-      jobMatchResultSchema.parse(generation.data),
+    const parsedData = parseGeminiJson<JobMatchResult>(generation.text);
+    const aiMatch = normalizeMatchResult(
+      jobMatchResultSchema.parse(parsedData),
     );
+
+    // MERGE: Prioritize local heuristics for scores and keyword detection
+    return {
+      ...aiMatch,
+      matchScore: localMatch.matchScore,
+      matchedSkills: localMatch.matchedSkills,
+      missingSkills: localMatch.missingSkills
+    };
   } catch (error) {
-    const normalizedError =
-      error instanceof GeminiServiceError
-        ? error
-        : new GeminiServiceError("Job matching failed.", {
-            status: 503,
-            code: "job_match_failed",
-            cause: error,
-          });
-
-    console.error("[AI Job Match] Falling back to local matcher", {
-      code: normalizedError.code,
-      message: normalizedError.message,
+    console.warn("[AI Job Match] Error parsing AI response, using local match", {
+      message: error instanceof Error ? error.message : "Unknown error",
     });
-
-    return createJobMatchFallback(
-      resumeText,
-      jobDescription,
-      normalizedError.message,
-    );
+    return localMatch;
   }
 }

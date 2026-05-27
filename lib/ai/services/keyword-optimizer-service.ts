@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { generateStructuredContentWithFallback } from "../gemini";
 import { z } from "zod";
+import { calculateLocalKeywordComparison, calculateLocalKeywordExtraction } from "./heuristic-service";
 
 const keywordExtractionSchema = z.object({
   criticalKeywords: z.array(z.string()),
@@ -37,42 +38,32 @@ RESPONSE FORMAT (JSON ONLY):
 }
 `;
 
-const KEYWORD_COMPARISON_PROMPT = `
-ACT AS AN ATS OPTIMIZER. COMPARE THE EXTRACTED JOB KEYWORDS AGAINST THE RESUME CONTENT.
-IDENTIFY WHICH ARE PRESENT AND WHICH ARE MISSING. PROVIDE TIPS ON WHERE TO NATURALLY ADD MISSING KEYWORDS.
-
-EXTRACTED JOB KEYWORDS:
-{jobKeywords}
-
-RESUME CONTENT:
-{resumeContent}
-
----
-RESPONSE FORMAT (JSON ONLY):
-{
-  "foundKeywords": [],
-  "missingKeywords": [],
-  "optimizationTips": [],
-  "keywordDensityScore": 0-100
-}
-`;
-
 export async function extractKeywordsFromJD(jobDescription: string): Promise<KeywordExtraction> {
+  const localKeywords = calculateLocalKeywordExtraction(jobDescription);
+  
   const prompt = KEYWORD_EXTRACTION_PROMPT.replace("{jobDescription}", jobDescription);
   const generation = await generateStructuredContentWithFallback<KeywordExtraction>(prompt);
-  return keywordExtractionSchema.parse(generation.data);
+  
+  if (generation.error || !generation.data) {
+    console.warn("[Keyword Optimizer] Gemini extraction failed, using local heuristics");
+    return localKeywords;
+  }
+
+  try {
+    return keywordExtractionSchema.parse(generation.data);
+  } catch (error) {
+    console.error("[Keyword Optimizer] Schema validation error:", error);
+    return localKeywords;
+  }
 }
 
 export async function compareKeywords(
   resumeContent: string, 
   jobKeywords: KeywordExtraction
 ): Promise<KeywordComparison> {
-  const prompt = KEYWORD_COMPARISON_PROMPT
-    .replace("{jobKeywords}", JSON.stringify(jobKeywords))
-    .replace("{resumeContent}", resumeContent);
-  
-  const generation = await generateStructuredContentWithFallback<KeywordComparison>(prompt);
-  return keywordComparisonSchema.parse(generation.data);
+  // FAST PATH: Comparison is 100% heuristic-based now to save quota
+  // This is highly accurate for keyword detection and doesn't need LLM.
+  return calculateLocalKeywordComparison(resumeContent, jobKeywords);
 }
 
 export async function getKeywordOptimization(resumeId: string, userId: string, jobDescription: string) {
@@ -92,3 +83,4 @@ export async function getKeywordOptimization(resumeId: string, userId: string, j
     comparison
   };
 }
+

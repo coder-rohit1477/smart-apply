@@ -3,7 +3,6 @@ import { CTASection } from "@/components/landing/cta-section";
 import { DashboardPreview } from "@/components/landing/dashboard-preview";
 import { FeatureGrid } from "@/components/landing/feature-grid";
 import { Hero } from "@/components/landing/hero";
-import { ProcessSection } from "@/components/landing/process-section";
 import { getLandingSnapshot } from "@/services/dashboard-service";
 import { routes } from "@/utils/routes";
 
@@ -30,7 +29,6 @@ export default async function HomePage() {
         topMatch={snapshot.previewMatches[0]}
       />
       <FeatureGrid />
-      <ProcessSection />
       <DashboardPreview
         metrics={snapshot.previewMetrics}
         matches={snapshot.previewMatches}

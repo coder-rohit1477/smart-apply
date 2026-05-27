@@ -1,19 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { 
+import {
   Activity,
-  AlertCircle, 
-  BrainCircuit, 
-  CheckCircle2, 
-  ChevronDown, 
-  ChevronUp, 
+  AlertCircle,
+  BrainCircuit,
+  CheckCircle2,
   FileSearch,
   Lightbulb,
   Sparkles,
   Target,
-  TrendingUp
-} from "lucide-react";import { Badge } from "@/components/ui/badge";
+  TrendingUp,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -35,14 +34,15 @@ export function AiAnalysis({ resume }: AiAnalysisProps) {
     try {
       const response = await fetch("/api/ai/analyze-resume", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ resumeId: resume.id }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Analysis failed");
-      
+
       setAnalysis(data.analysis.analysisData as FullResumeAnalysis);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Analysis failed");
     } finally {
       setIsAnalyzing(false);
     }
@@ -106,24 +106,16 @@ export function AiAnalysis({ resume }: AiAnalysisProps) {
 
   if (!analysis) return null;
 
-  const sectionScores = analysis.sectionScores || {
-    summary: 0,
-    experience: 0,
-    projects: 0,
-    skills: 0,
-    education: 0
-  };
-
   return (
     <div className="space-y-6">
       <div className="grid gap-6 md:grid-cols-4">
-        <ScoreCard 
+        <ScoreCard
           title="Overall Readiness"
           score={analysis.readinessScore || 0}
           icon={Target}
           description="Total market readiness score."
         />
-        <ScoreCard 
+        <ScoreCard
           title="ATS Score"
           score={analysis.atsScore}
           icon={Activity}
@@ -157,7 +149,7 @@ export function AiAnalysis({ resume }: AiAnalysisProps) {
                 <div key={i} className="flex items-start gap-3 p-3 rounded-xl border bg-background/50">
                   <div className={cn(
                     "mt-1 h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0",
-                    action.impact === "HIGH" ? "bg-red-500/10 text-red-500" : "bg-amber-500/10 text-amber-500"
+                    action.impact === "HIGH" ? "bg-red-500/10 text-red-500" : "bg-amber-500/10 text-amber-500",
                   )}>
                     {i + 1}
                   </div>
@@ -171,6 +163,7 @@ export function AiAnalysis({ resume }: AiAnalysisProps) {
           </CardContent>
         </Card>
       )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -186,17 +179,17 @@ export function AiAnalysis({ resume }: AiAnalysisProps) {
       </Card>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <ListCard 
-          title="Strengths" 
-          items={analysis.strengths} 
-          icon={CheckCircle2} 
+        <ListCard
+          title="Strengths"
+          items={analysis.strengths}
+          icon={CheckCircle2}
           itemClass="text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30"
           iconClass="text-emerald-500"
         />
-        <ListCard 
-          title="Areas for Improvement" 
-          items={analysis.weaknesses} 
-          icon={AlertCircle} 
+        <ListCard
+          title="Areas for Improvement"
+          items={analysis.weaknesses}
+          icon={AlertCircle}
           itemClass="text-amber-600 bg-amber-50 dark:bg-amber-950/30"
           iconClass="text-amber-500"
         />
@@ -266,15 +259,15 @@ export function AiAnalysis({ resume }: AiAnalysisProps) {
   );
 }
 
-function ScoreCard({ 
-  title, 
-  score, 
-  icon: Icon, 
-  description 
-}: { 
-  title: string; 
-  score: number; 
-  icon: any;
+function ScoreCard({
+  title,
+  score,
+  icon: Icon,
+  description,
+}: {
+  title: string;
+  score: number;
+  icon: React.ComponentType<{ className?: string }>;
   description: string;
 }) {
   const getColor = (s: number) => {
@@ -299,8 +292,8 @@ function ScoreCard({
         <h4 className="font-semibold">{title}</h4>
         <p className="mb-4 text-xs text-muted-foreground">{description}</p>
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-          <div 
-            className={cn("h-full transition-all duration-1000", getBg(score))} 
+          <div
+            className={cn("h-full transition-all duration-1000", getBg(score))}
             style={{ width: `${score}%` }}
           ></div>
         </div>
@@ -309,16 +302,16 @@ function ScoreCard({
   );
 }
 
-function ListCard({ 
-  title, 
-  items, 
-  icon: Icon, 
+function ListCard({
+  title,
+  items,
+  icon: Icon,
   itemClass,
-  iconClass 
-}: { 
-  title: string; 
-  items: string[]; 
-  icon: any;
+  iconClass,
+}: {
+  title: string;
+  items: string[];
+  icon: React.ComponentType<{ className?: string }>;
   itemClass: string;
   iconClass: string;
 }) {

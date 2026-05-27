@@ -20,9 +20,10 @@ export interface JobRecord {
   schedule: "Remote" | "Hybrid" | "On-site";
   salary: string;
   summary: string;
-  skills: string[];
+  skills: Skill[];
   postedAt: string;
   stage: "Curated" | "Shortlisted" | "Interview" | "Applied";
+  source: string;
 }
 
 export interface MatchInsight {
@@ -34,7 +35,7 @@ export interface MatchInsight {
   summary: string;
   matchScore: number;
   atsScore: number;
-  missingSkills: string[];
+  missingSkills: Skill[];
   stage: JobRecord["stage"];
 }
 
@@ -59,12 +60,36 @@ export interface ActivityItem {
   time: string;
 }
 
+export interface Skill {
+  name: string;
+  normalizedName: string;
+  source: string;
+  confidence: string;
+}
+
 export interface ResumeProfile {
   roleFocus: string;
   yearsOfExperience: number;
   strengths: string[];
   keywords: string[];
-  seniority: "Mid-level" | "Senior" | "Lead";
+  seniority: "Intern" | "Fresher" | "Junior" | "Mid-level" | "Senior" | "Lead" | "Staff" | "Principal";
+}
+
+export interface ParsedResume {
+  fullName?: string | null;
+  name?: string | null;
+  email?: string | null;
+  phoneNumber?: string | null;
+  headline?: string | null;
+  summary?: string | null;
+  estimatedYearsOfExperience?: number | null;
+  projects?: string[] | null;
+  education?: any[] | null;
+  experience?: any[] | null;
+  certifications?: string[] | null;
+  skills?: Skill[] | null;
+  rawText?: string | null;
+  sections?: { [key: string]: string | string[] } | null;
 }
 
 export interface AiRecommendation {

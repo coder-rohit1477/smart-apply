@@ -7,7 +7,7 @@ import { TailoringWorkspace } from "./tailoring-workspace";
 import { VersionHistory } from "./version-history";
 import { HealthDashboard } from "./health-dashboard";
 import { LivePreview } from "./live-preview";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -25,13 +25,13 @@ import {
   ShieldCheck,
   PanelLeft,
   Columns,
-  Wand2
+  Wand2,
 } from "lucide-react";
-import { FullResumeAnalysis } from "@/types/resume";
+import type { FullResumeAnalysis } from "@/types/resume";
 
 interface OptimizationPanelProps {
   resumeId: string;
-  parsedData: any;
+  parsedData: Record<string, unknown>;
   targetRole?: string;
 }
 
@@ -48,7 +48,8 @@ export function OptimizationPanel({ resumeId, parsedData, targetRole }: Optimiza
       try {
         const response = await fetch(`/api/ai/analyze-resume`, {
           method: "POST",
-          body: JSON.stringify({ resumeId })
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ resumeId }),
         });
         const data = await response.json();
         if (data.success) {
@@ -63,12 +64,24 @@ export function OptimizationPanel({ resumeId, parsedData, targetRole }: Optimiza
     fetchLatestAnalysis();
   }, [resumeId]);
 
+  const getStringArray = (value: unknown): string[] => {
+    if (Array.isArray(value)) {
+      return value.map((item) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item === "object" && "name" in item) return String((item as { name: unknown }).name);
+        return String(item);
+      });
+    }
+    if (typeof value === "string") return [value];
+    return [];
+  };
+
   const sections = [
-    { id: "SUMMARY", label: "Summary", icon: FileText, content: parsedData.summary || "" },
-    { id: "EXPERIENCE", label: "Experience", icon: Briefcase, content: Array.isArray(parsedData.experience) ? parsedData.experience.join("\n") : (parsedData.experience || "") },
-    { id: "PROJECTS", label: "Projects", icon: Code, content: Array.isArray(parsedData.projects) ? parsedData.projects.join("\n") : (parsedData.projects || "") },
-    { id: "SKILLS", label: "Skills", icon: Layout, content: Array.isArray(parsedData.skills) ? parsedData.skills.map((s: any) => s.name || s).join(", ") : (parsedData.skills || "") },
-    { id: "EDUCATION", label: "Education", icon: GraduationCap, content: Array.isArray(parsedData.education) ? parsedData.education.join("\n") : (parsedData.education || "") },
+    { id: "SUMMARY", label: "Summary", icon: FileText, content: typeof parsedData.summary === "string" ? parsedData.summary : "" },
+    { id: "EXPERIENCE", label: "Experience", icon: Briefcase, content: getStringArray(parsedData.experience).join("\n") },
+    { id: "PROJECTS", label: "Projects", icon: Code, content: getStringArray(parsedData.projects).join("\n") },
+    { id: "SKILLS", label: "Skills", icon: Layout, content: getStringArray(parsedData.skills).join(", ") },
+    { id: "EDUCATION", label: "Education", icon: GraduationCap, content: getStringArray(parsedData.education).join("\n") },
   ];
 
   const handleSaveSection = (optimizedContent: string) => {
@@ -105,11 +118,11 @@ export function OptimizationPanel({ resumeId, parsedData, targetRole }: Optimiza
 
       <div className={cn(
         "grid grid-cols-1 gap-6",
-        showPreview ? "lg:grid-cols-12" : "lg:grid-cols-4"
+        showPreview ? "lg:grid-cols-12" : "lg:grid-cols-4",
       )}>
         <Card className={cn(
           "h-fit lg:sticky lg:top-6",
-          showPreview ? "lg:col-span-2" : "lg:col-span-1"
+          showPreview ? "lg:col-span-2" : "lg:col-span-1",
         )}>
           <CardHeader className="pb-3">
             <CardTitle className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">Workspace</CardTitle>
@@ -153,14 +166,16 @@ export function OptimizationPanel({ resumeId, parsedData, targetRole }: Optimiza
 
         <div className={cn(
           "min-h-[600px]",
-          showPreview ? "lg:col-span-5" : "lg:col-span-3"
+          showPreview ? "lg:col-span-5" : "lg:col-span-3",
         )}>
           {activeTab === "health" && (
             analysis ? <HealthDashboard analysis={analysis} /> : (
               <div className="h-full flex items-center justify-center p-12 border-2 border-dashed rounded-[2rem] bg-accent/20">
                 <div className="text-center space-y-4">
                   <Activity className="h-12 w-12 text-primary/40 mx-auto animate-pulse" />
-                  <p className="text-muted-foreground">Generating your comprehensive health report...</p>
+                  <p className="text-muted-foreground">
+                    {isLoading ? "Generating your comprehensive health report..." : "No analysis available. Click Health Score to load."}
+                  </p>
                 </div>
               </div>
             )
@@ -187,8 +202,8 @@ export function OptimizationPanel({ resumeId, parsedData, targetRole }: Optimiza
                 ))}
               </div>
 
-              {sections.map((s) => (
-                activeSection === s.id && (
+              {sections.map((s) =>
+                activeSection === s.id ? (
                   <SectionOptimizer
                     key={s.id}
                     resumeId={resumeId}
@@ -197,8 +212,8 @@ export function OptimizationPanel({ resumeId, parsedData, targetRole }: Optimiza
                     targetRole={targetRole}
                     onSave={handleSaveSection}
                   />
-                )
-              ))}
+                ) : null,
+              )}
             </div>
           )}
 
@@ -235,22 +250,23 @@ function SidebarButton({
   onClick,
   icon: Icon,
   label,
-  badge
+  badge,
 }: {
   active: boolean;
   onClick: () => void;
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   badge?: string;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center justify-between p-4 text-sm font-medium transition-all border-l-2 ${
+      className={cn(
+        "flex items-center justify-between p-4 text-sm font-medium transition-all border-l-2",
         active
           ? "bg-primary/5 border-primary text-primary"
-          : "border-transparent hover:bg-accent text-muted-foreground"
-      }`}
+          : "border-transparent hover:bg-accent text-muted-foreground",
+      )}
     >
       <div className="flex items-center gap-3">
         <Icon className={cn("h-4 w-4", active ? "text-primary" : "text-muted-foreground")} />

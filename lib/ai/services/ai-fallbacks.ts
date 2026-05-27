@@ -3,47 +3,17 @@ import type { JobMatchResult } from "./ai-job-match-service";
 import type { AtsMatchResult } from "@/lib/matching/ats-engine";
 
 const STOP_WORDS = new Set([
-  "a",
-  "an",
-  "and",
-  "are",
-  "as",
-  "at",
-  "be",
-  "by",
-  "for",
-  "from",
-  "in",
-  "is",
-  "it",
-  "of",
-  "on",
-  "or",
-  "that",
-  "the",
-  "to",
-  "with",
-  "you",
-  "your",
-  "will",
-  "this",
-  "they",
-  "their",
-  "have",
-  "has",
-  "using",
-  "use",
-  "into",
-  "than",
-  "our",
-  "about",
+  "a", "an", "and", "are", "as", "at", "be", "by", "for", "from",
+  "in", "is", "it", "of", "on", "or", "that", "the", "to", "with",
+  "you", "your", "will", "this", "they", "their", "have", "has",
+  "using", "use", "into", "than", "our", "about",
 ]);
 
 function clampScore(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
-function tokenize(text: string) {
+function tokenize(text: string): string[] {
   return text
     .toLowerCase()
     .replace(/[^a-z0-9\s+#.-]/g, " ")
@@ -52,11 +22,11 @@ function tokenize(text: string) {
     .filter((token) => token.length >= 3 && !STOP_WORDS.has(token));
 }
 
-function unique(values: string[]) {
+function unique(values: string[]): string[] {
   return Array.from(new Set(values));
 }
 
-function extractKeywords(text: string, limit: number) {
+function extractKeywords(text: string, limit: number): string[] {
   const counts = new Map<string, number>();
 
   for (const token of tokenize(text)) {
@@ -69,7 +39,7 @@ function extractKeywords(text: string, limit: number) {
     .map(([token]) => token);
 }
 
-function hasAny(text: string, patterns: RegExp[]) {
+function hasAny(text: string, patterns: RegExp[]): boolean {
   return patterns.some((pattern) => pattern.test(text));
 }
 
@@ -172,17 +142,17 @@ export function createResumeAnalysisFallback(
     },
     prioritizedActions: [
       {
-        impact: "HIGH",
-        type: "CONTENT",
+        impact: "HIGH" as const,
+        type: "CONTENT" as const,
         action: "Quantify your achievements",
-        reason: "Adding metrics like % or $ helps recruiters and ATS systems understand your value."
+        reason: "Adding metrics like % or $ helps recruiters and ATS systems understand your value.",
       },
       {
-        impact: "MEDIUM",
-        type: "KEYWORDS",
-        action: `Add missing keywords: ${missingKeywords.slice(0, 3).join(", ")}`,
-        reason: "These keywords are highly relevant to the job description."
-      }
+        impact: "MEDIUM" as const,
+        type: "KEYWORDS" as const,
+        action: `Add missing keywords: ${missingKeywords.slice(0, 3).join(", ") || "role-specific terms"}`,
+        reason: "These keywords are highly relevant to the job description.",
+      },
     ],
     strengths:
       strengths.length > 0
@@ -198,7 +168,7 @@ export function createResumeAnalysisFallback(
     technicalGaps,
     softSkillGaps,
     executiveSummary:
-      `Gemini analysis was unavailable, so a resilient local fallback generated this review. ${reason}`,  
+      `Gemini analysis was unavailable, so a resilient local fallback generated this review. ${reason}`,
     topThreeChanges,
     upskillingPlan: unique(
       [
@@ -209,7 +179,8 @@ export function createResumeAnalysisFallback(
         "Tailor keywords and role language for each application before submitting.",
       ],
     ),
-  };}
+  };
+}
 
 export function createJobMatchFallback(
   resumeText: string,
@@ -285,25 +256,25 @@ export function createAtsMatchFallback(
     },
     recommendations: [
       {
-        priority: "HIGH",
+        priority: "HIGH" as const,
         title: "Add missing role language",
         suggestion:
           missing.length > 0
             ? `Integrate terms like ${missing.slice(0, 3).join(", ")} where they are true and supported by experience.`
             : "Align the summary and key bullets more tightly to the target role.",
-        type: "KEYWORD",
+        type: "KEYWORD" as const,
       },
       {
-        priority: "MEDIUM",
+        priority: "MEDIUM" as const,
         title: "Quantify achievements",
         suggestion: "Add measurable outcomes to recent bullets to increase recruiter confidence.",
-        type: "CONTENT",
+        type: "CONTENT" as const,
       },
       {
-        priority: "LOW",
+        priority: "LOW" as const,
         title: "Keep formatting ATS-safe",
         suggestion: `Fallback ATS analysis was used because Gemini was unavailable. ${reason}`,
-        type: "FORMATTING",
+        type: "FORMATTING" as const,
       },
     ],
   };

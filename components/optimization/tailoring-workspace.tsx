@@ -1,12 +1,21 @@
 "use client";
 
 import React, { useState } from "react";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Wand2, ArrowRight, CheckCircle2, ChevronRight, MessageSquare, Target, Zap, ShieldCheck } from "lucide-react";
+import {
+  Loader2,
+  Wand2,
+  CheckCircle2,
+  MessageSquare,
+  Target,
+  Zap,
+  ShieldCheck,
+  AlertCircle,
+} from "lucide-react";
 import { tailorResumeAction, saveOptimizedVersionAction } from "@/actions/optimization-actions";
-import { TailoringResult } from "@/types/tailoring";
+import type { TailoringResult } from "@/types/tailoring";
 import { cn } from "@/lib/utils";
 
 interface TailoringWorkspaceProps {
@@ -20,6 +29,7 @@ export function TailoringWorkspace({ resumeId }: TailoringWorkspaceProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [result, setResult] = useState<TailoringResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleTailor = async () => {
     if (!jd.trim()) {
@@ -29,11 +39,12 @@ export function TailoringWorkspace({ resumeId }: TailoringWorkspaceProps) {
 
     setIsTailoring(true);
     setError(null);
+    setSaveSuccess(false);
     try {
       const data = await tailorResumeAction(resumeId, jd, focus);
       setResult(data);
-    } catch (err: any) {
-      setError(err.message || "Failed to tailor resume.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to tailor resume.");
     } finally {
       setIsTailoring(false);
     }
@@ -42,27 +53,27 @@ export function TailoringWorkspace({ resumeId }: TailoringWorkspaceProps) {
   const handleApplyChanges = async () => {
     if (!result) return;
     setIsSaving(true);
+    setError(null);
     try {
-      // Reconstruct the full parsed data object (simplified for now)
       const optimizedData = {
         summary: result.summary.tailoredContent,
-        experience: result.experience.map(exp => ({
+        experience: result.experience.map((exp) => ({
           company: exp.company,
           role: exp.role,
-          bullets: exp.bullets.map(b => b.tailored)
+          bullets: exp.bullets.map((b) => b.tailored),
         })),
         skills: result.skills.suggestedOrdering,
-        projects: result.projects.map(p => ({
+        projects: result.projects.map((p) => ({
           name: p.name,
-          description: p.description.tailoredContent
-        }))
+          description: p.description.tailoredContent,
+        })),
       };
 
-      await saveOptimizedVersionAction(resumeId, `Tailored for ${result.experience[0]?.company || 'Position'}`, optimizedData);
-      alert("Tailored version saved successfully!");
-    } catch (err) {
-      console.error(err);
-      alert("Failed to save changes.");
+      const versionName = `Tailored for ${result.experience[0]?.company ?? "Position"}`;
+      await saveOptimizedVersionAction(resumeId, versionName, optimizedData);
+      setSaveSuccess(true);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to save changes.");
     } finally {
       setIsSaving(false);
     }
@@ -119,8 +130,16 @@ export function TailoringWorkspace({ resumeId }: TailoringWorkspaceProps) {
       </Card>
 
       {error && (
-        <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm font-medium">
+        <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm font-medium flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
+        </div>
+      )}
+
+      {saveSuccess && (
+        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 text-sm font-medium flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          Tailored version saved successfully!
         </div>
       )}
 
@@ -146,8 +165,8 @@ export function TailoringWorkspace({ resumeId }: TailoringWorkspaceProps) {
             </CardContent>
           </Card>
 
-          <SectionTailorCard 
-            title="Professional Summary" 
+          <SectionTailorCard
+            title="Professional Summary"
             original={result.summary.originalContent}
             tailored={result.summary.tailoredContent}
             highlights={result.summary.improvementHighlights}
@@ -198,10 +217,16 @@ export function TailoringWorkspace({ resumeId }: TailoringWorkspaceProps) {
           </div>
 
           <div className="flex justify-end gap-4">
-            <Button variant="outline" onClick={() => setResult(null)}>Discard</Button>
-            <Button size="lg" onClick={handleApplyChanges} disabled={isSaving}>
-              {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-              Save as New Version
+            <Button variant="outline" onClick={() => { setResult(null); setSaveSuccess(false); }}>
+              Discard
+            </Button>
+            <Button size="lg" onClick={handleApplyChanges} disabled={isSaving || saveSuccess}>
+              {isSaving ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+              )}
+              {saveSuccess ? "Saved!" : "Save as New Version"}
             </Button>
           </div>
         </div>
@@ -210,7 +235,19 @@ export function TailoringWorkspace({ resumeId }: TailoringWorkspaceProps) {
   );
 }
 
-function SectionTailorCard({ title, original, tailored, highlights, note }: any) {
+function SectionTailorCard({
+  title,
+  original,
+  tailored,
+  highlights,
+  note,
+}: {
+  title: string;
+  original: string;
+  tailored: string;
+  highlights: string[];
+  note: string;
+}) {
   return (
     <Card>
       <CardHeader>
@@ -231,14 +268,14 @@ function SectionTailorCard({ title, original, tailored, highlights, note }: any)
             </div>
           </div>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t pt-4">
           <div className="md:col-span-2">
             <span className="text-[10px] font-bold uppercase text-muted-foreground block mb-2">Key Improvements</span>
             <ul className="space-y-1">
-              {highlights.map((h: string, i: number) => (
+              {highlights.map((h, i) => (
                 <li key={i} className="text-xs flex items-center gap-2">
-                  <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                  <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
                   {h}
                 </li>
               ))}

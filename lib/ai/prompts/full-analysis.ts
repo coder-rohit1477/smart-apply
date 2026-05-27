@@ -38,7 +38,7 @@ RESPONSE FORMAT (JSON ONLY):
     }
   ],
   "strengths": string[],
-  "weaknesses": string[],
+  "areasForImprovement": string[],
   "recommendations": string[],
   "executiveSummary": string,
   "topThreeChanges": string[],

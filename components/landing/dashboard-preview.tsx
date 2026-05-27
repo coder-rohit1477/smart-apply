@@ -80,8 +80,8 @@ export function DashboardPreview({
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {match.missingSkills.map((skill) => (
-                        <Badge key={skill} variant="outline">
-                          {skill}
+                        <Badge key={skill.name} variant="outline">
+                          {skill.name}
                         </Badge>
                       ))}
                     </div>

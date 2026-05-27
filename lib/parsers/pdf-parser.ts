@@ -62,6 +62,7 @@ export async function parsePdfBuffer(
      * Cleanup extracted text
      */
     const cleanedText = rawText
+      // eslint-disable-next-line no-control-regex
       .replace(/\u0000/g, "")
       .replace(/\s+/g, " ")
       .trim();
@@ -101,7 +102,7 @@ export async function parsePdfBuffer(
       message.toLowerCase().includes("password")
     ) {
       throw new Error(
-        "CANNOT_PARSE_PASSWORD_PROTECTED_PDF"
+        "CANNOT_PARSE_PASSWORD_PROTECTED_PDF", { cause: error }
       );
     }
 
@@ -110,7 +111,7 @@ export async function parsePdfBuffer(
      */
     if (message === "EMPTY_OR_CORRUPTED_PDF") {
       throw new Error(
-        "The PDF appears to be empty or contains no extractable text."
+        "The PDF appears to be empty or contains no extractable text.", { cause: error }
       );
     }
 
@@ -118,7 +119,7 @@ export async function parsePdfBuffer(
      * Generic extraction failure
      */
     throw new Error(
-      `FAILED_TO_EXTRACT_PDF_TEXT: ${message}`
+      `FAILED_TO_EXTRACT_PDF_TEXT: ${message}`, { cause: error }
     );
   }
 }

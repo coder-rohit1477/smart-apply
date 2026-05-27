@@ -1,10 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { performAtsMatch } from "@/lib/ai/services/ats-service";
+import { createAtsMatchFallback } from "@/lib/ai/services/ai-fallbacks";
 import type {
   JobFeedFilters,
   JobRecommendation,
   JobRecommendationCategory,
 } from "@/types/jobs";
+import type { AtsMatchResult } from "@/lib/matching/ats-engine";
 import {
   freshnessScore,
   fresherFitScore,
@@ -17,6 +19,32 @@ const DEFAULT_FILTERS: JobFeedFilters = {
   fresherOnly: false,
   location: "ALL",
 };
+
+// Simple in-process cache: key = `${resumeId}:${jobId}`, TTL = 10 minutes
+const atsCache = new Map<string, { result: AtsMatchResult; expiresAt: number }>();
+const ATS_CACHE_TTL_MS = 10 * 60 * 1000;
+
+async function cachedAtsMatch(
+  resumeText: string,
+  resumeId: string,
+  jobId: string,
+  jobDescription: string,
+): Promise<AtsMatchResult> {
+  const cacheKey = `${resumeId}:${jobId}`;
+  const cached = atsCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.result;
+  }
+
+  try {
+    const result = await performAtsMatch(resumeText, jobDescription);
+    atsCache.set(cacheKey, { result, expiresAt: Date.now() + ATS_CACHE_TTL_MS });
+    return result;
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : "ATS match failed";
+    return createAtsMatchFallback(resumeText, jobDescription, reason);
+  }
+}
 
 export class JobRecommendationService {
   async getRecommendations(
@@ -74,7 +102,13 @@ export class JobRecommendationService {
 
     for (const job of filteredJobs) {
       try {
-        const match = await performAtsMatch(resume.rawText, job.description);
+        const match = await cachedAtsMatch(
+          resume.rawText,
+          resume.id,
+          job.id,
+          job.description,
+        );
+
         const locationScore = locationRelevanceScore(job.location, job.type, filters.location);
         const fresherScore = fresherFitScore(
           {

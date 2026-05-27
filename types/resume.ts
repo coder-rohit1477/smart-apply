@@ -165,39 +165,15 @@ export const deleteResponseSchema = z.union([
   }),
 ]);
 
-export interface FullResumeAnalysis {
-  atsScore: number;
-  formattingScore: number;
-  impactScore: number;
-  readinessScore: number;
-  sectionScores: {
-    summary: number;
-    experience: number;
-    projects: number;
-    skills: number;
-    education: number;
-  };
-  prioritizedActions: {
-    impact: "HIGH" | "MEDIUM";
-    type: "FORMATTING" | "CONTENT" | "KEYWORDS";
-    action: string;
-    reason: string;
-  }[];
-  strengths: string[];
-  weaknesses: string[];
-  recommendations: string[];
-  executiveSummary: string;
-  topThreeChanges: string[];
-  missingKeywords: string[];
-  matchedKeywords: string[];
-  technicalGaps: string[];
-  softSkillGaps: string[];
-  upskillingPlan: string[];
-}
+// Re-exported from ai-resume-service to avoid duplication
+export type { FullResumeAnalysis } from "@/lib/ai/services/ai-resume-service";
 
 export interface AnalysisResponseSuccess {
   success: true;
-  analysis: any; // Using any for the raw prisma model but the UI will use FullResumeAnalysis from analysisData
+  analysis: {
+    analysisData: import("@/lib/ai/services/ai-resume-service").FullResumeAnalysis;
+    [key: string]: unknown;
+  };
 }
 
 export interface AnalysisResponseError {

@@ -6,7 +6,7 @@ import { getResumeProfile } from "@/parser/resume-parser";
 
 export async function getLandingSnapshot(): Promise<LandingSnapshot> {
   const profile = await getResumeProfile();
-  const jobs = await getFeaturedJobs();
+  const jobs = await getFeaturedJobs({});
   const previewMatches = buildJobMatches(profile, jobs).slice(0, 3);
   const averageAts = Math.round(
     previewMatches.reduce((total, match) => total + match.atsScore, 0) /
@@ -62,7 +62,7 @@ export async function getDashboardSnapshot(
   userId?: string,
 ): Promise<DashboardSnapshot> {
   const profile = await getResumeProfile(userId);
-  const jobs = await getFeaturedJobs();
+  const jobs = await getFeaturedJobs({ seniority: profile.seniority });
   const matches = buildJobMatches(profile, jobs);
   const pipeline = await getPipelineItems(userId);
   const activities = await getActivityFeed(userId);

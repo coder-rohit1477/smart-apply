@@ -4,21 +4,20 @@ import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { 
-  Target, 
-  Search, 
-  AlertCircle, 
-  CheckCircle2, 
-  ArrowRight, 
-  Briefcase, 
-  Cpu, 
+import {
+  Target,
+  Search,
+  AlertCircle,
+  CheckCircle2,
+  ArrowRight,
+  Briefcase,
+  Cpu,
   Zap,
   Loader2,
-  BarChart3
+  BarChart3,
 } from "lucide-react";
 import { performAtsMatchAction } from "@/actions/optimization-actions";
-import { AtsMatchResult } from "@/lib/matching/ats-engine";
+import type { AtsMatchResult } from "@/lib/matching/ats-engine";
 import { cn } from "@/lib/utils";
 
 interface AtsMatchingDashboardProps {
@@ -42,8 +41,8 @@ export function AtsMatchingDashboard({ resumeId }: AtsMatchingDashboardProps) {
     try {
       const data = await performAtsMatchAction(resumeId, jd);
       setResult(data);
-    } catch (err: any) {
-      setError(err.message || "Failed to perform ATS match.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to perform ATS match.");
     } finally {
       setIsMatching(false);
     }
@@ -100,7 +99,7 @@ export function AtsMatchingDashboard({ resumeId }: AtsMatchingDashboardProps) {
 
       {error && (
         <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive flex items-center gap-3">
-          <AlertCircle className="h-5 w-5" />
+          <AlertCircle className="h-5 w-5 shrink-0" />
           <p className="text-sm font-medium">{error}</p>
         </div>
       )}
@@ -125,7 +124,10 @@ export function AtsMatchingDashboard({ resumeId }: AtsMatchingDashboardProps) {
                       strokeWidth="8"
                       strokeDasharray={364}
                       strokeDashoffset={364 - (364 * result.overallScore) / 100}
-                      className={cn("transition-all duration-1000", getScoreColor(result.overallScore).replace("text-", "stroke-"))}
+                      className={cn(
+                        "transition-all duration-1000",
+                        getScoreColor(result.overallScore).replace("text-", "stroke-"),
+                      )}
                     />
                   </svg>
                 </div>
@@ -142,12 +144,14 @@ export function AtsMatchingDashboard({ resumeId }: AtsMatchingDashboardProps) {
               <CardContent className="space-y-6">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm font-medium">
-                    <span className="flex items-center gap-2"><Zap className="h-4 w-4 text-amber-500" /> Semantic Similarity</span>
+                    <span className="flex items-center gap-2">
+                      <Zap className="h-4 w-4 text-amber-500" /> Semantic Similarity
+                    </span>
                     <span>{result.semanticSimilarity}%</span>
                   </div>
                   <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                    <div 
-                      className={cn("h-full transition-all", getProgressColor(result.semanticSimilarity))} 
+                    <div
+                      className={cn("h-full transition-all", getProgressColor(result.semanticSimilarity))}
                       style={{ width: `${result.semanticSimilarity}%` }}
                     />
                   </div>
@@ -155,12 +159,14 @@ export function AtsMatchingDashboard({ resumeId }: AtsMatchingDashboardProps) {
 
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm font-medium">
-                    <span className="flex items-center gap-2"><Target className="h-4 w-4 text-primary" /> Keyword Match</span>
+                    <span className="flex items-center gap-2">
+                      <Target className="h-4 w-4 text-primary" /> Keyword Match
+                    </span>
                     <span>{result.keywordMatch.percentage}%</span>
                   </div>
                   <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                    <div 
-                      className={cn("h-full transition-all", getProgressColor(result.keywordMatch.percentage))} 
+                    <div
+                      className={cn("h-full transition-all", getProgressColor(result.keywordMatch.percentage))}
                       style={{ width: `${result.keywordMatch.percentage}%` }}
                     />
                   </div>
@@ -168,12 +174,14 @@ export function AtsMatchingDashboard({ resumeId }: AtsMatchingDashboardProps) {
 
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm font-medium">
-                    <span className="flex items-center gap-2"><Briefcase className="h-4 w-4 text-blue-500" /> Recruiter Readiness</span>
+                    <span className="flex items-center gap-2">
+                      <Briefcase className="h-4 w-4 text-blue-500" /> Recruiter Readiness
+                    </span>
                     <span>{result.recruiterReadiness.score}%</span>
                   </div>
                   <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                    <div 
-                      className={cn("h-full transition-all", getProgressColor(result.recruiterReadiness.score))} 
+                    <div
+                      className={cn("h-full transition-all", getProgressColor(result.recruiterReadiness.score))}
                       style={{ width: `${result.recruiterReadiness.score}%` }}
                     />
                   </div>
@@ -192,11 +200,15 @@ export function AtsMatchingDashboard({ resumeId }: AtsMatchingDashboardProps) {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {result.keywordMatch.matched.map((kw, i) => (
-                    <Badge key={i} variant="secondary" className="bg-emerald-500/10 text-emerald-700 border-emerald-200">
-                      {kw}
-                    </Badge>
-                  ))}
+                  {result.keywordMatch.matched.length > 0 ? (
+                    result.keywordMatch.matched.map((kw, i) => (
+                      <Badge key={i} variant="secondary" className="bg-emerald-500/10 text-emerald-700 border-emerald-200">
+                        {kw}
+                      </Badge>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No matched keywords found.</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -210,11 +222,15 @@ export function AtsMatchingDashboard({ resumeId }: AtsMatchingDashboardProps) {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {result.keywordMatch.missing.map((kw, i) => (
-                    <Badge key={i} variant="outline" className="text-destructive border-destructive/20 bg-destructive/5">
-                      {kw}
-                    </Badge>
-                  ))}
+                  {result.keywordMatch.missing.length > 0 ? (
+                    result.keywordMatch.missing.map((kw, i) => (
+                      <Badge key={i} variant="outline" className="text-destructive border-destructive/20 bg-destructive/5">
+                        {kw}
+                      </Badge>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No missing keywords — great match!</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -231,10 +247,17 @@ export function AtsMatchingDashboard({ resumeId }: AtsMatchingDashboardProps) {
             <CardContent>
               <div className="space-y-4">
                 {result.recommendations.map((rec, i) => (
-                  <div key={i} className="flex items-start gap-4 p-4 rounded-xl border bg-card/50 hover:bg-accent/50 transition-colors">
+                  <div
+                    key={i}
+                    className="flex items-start gap-4 p-4 rounded-xl border bg-card/50 hover:bg-accent/50 transition-colors"
+                  >
                     <div className={cn(
                       "mt-1 shrink-0 h-10 w-10 rounded-full flex items-center justify-center font-bold text-sm",
-                      rec.priority === "HIGH" ? "bg-red-500/10 text-red-500" : rec.priority === "MEDIUM" ? "bg-amber-500/10 text-amber-500" : "bg-blue-500/10 text-blue-500"
+                      rec.priority === "HIGH"
+                        ? "bg-red-500/10 text-red-500"
+                        : rec.priority === "MEDIUM"
+                          ? "bg-amber-500/10 text-amber-500"
+                          : "bg-blue-500/10 text-blue-500",
                     )}>
                       {rec.priority === "HIGH" ? "!!!" : rec.priority === "MEDIUM" ? "!!" : "!"}
                     </div>
@@ -245,6 +268,7 @@ export function AtsMatchingDashboard({ resumeId }: AtsMatchingDashboardProps) {
                       </div>
                       <p className="text-sm text-muted-foreground">{rec.suggestion}</p>
                     </div>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 ml-auto mt-1" />
                   </div>
                 ))}
               </div>

@@ -181,6 +181,7 @@ export async function getLatestResumeForActor(
     },
     select: {
       id: true,
+      name: true,
       fileName: true,
       fileType: true,
       fileSize: true,
@@ -190,10 +191,10 @@ export async function getLatestResumeForActor(
       parsedSkills: true,
       targetRole: true,
       summary: true,
-      name: true,
       createdAt: true,
       updatedAt: true,
-      // rawText is intentionally excluded here to optimize serialization
+      // rawText intentionally excluded to keep the response lean;
+      // serializeStoredResume falls back to summary when rawText is null.
     },
     orderBy: {
       createdAt: "desc",
@@ -202,13 +203,25 @@ export async function getLatestResumeForActor(
 
   if (!resume) return null;
 
-  // Manual mapping to satisfy storedResumeSchema which expects rawText
-  const serialized = serializeStoredResume({
-    ...resume,
-    rawText: null, // Provide a placeholder for the serializer
-  } as any);
+  // Build a partial Resume shape that satisfies serializeStoredResume.
+  const partial = {
+    id: resume.id,
+    name: resume.name,
+    fileName: resume.fileName,
+    fileType: resume.fileType,
+    fileSize: resume.fileSize,
+    fileUrl: resume.fileUrl,
+    parsedData: resume.parsedData,
+    extractedSkills: resume.extractedSkills,
+    parsedSkills: resume.parsedSkills,
+    targetRole: resume.targetRole,
+    summary: resume.summary,
+    rawText: null, // not fetched — will be handled by the fallback inside serializeStoredResume
+    createdAt: resume.createdAt,
+    updatedAt: resume.updatedAt,
+  } as unknown as Resume;
 
-  return serialized;
+  return serializeStoredResume(partial);
 }
 
 export function buildResumeErrorResponse(error: unknown) {
@@ -222,11 +235,11 @@ export function buildResumeErrorResponse(error: unknown) {
             400,
             error.issues.map((issue) => issue.message),
           )
-      : mapUnknownResumeError(
-          error,
-          "UNKNOWN_ERROR",
-          "Something went wrong while processing the resume.",
-        );
+        : mapUnknownResumeError(
+            error,
+            "UNKNOWN_ERROR",
+            "Something went wrong while processing the resume.",
+          );
 
   return {
     status: resumeError.status,
@@ -256,6 +269,13 @@ async function readResumeFile(file: File) {
 function serializeStoredResume(resume: Resume) {
   const parsedResume = parseStoredResumeJson(resume.parsedData);
 
+  // rawText is omitted on lightweight queries; fall back gracefully.
+  const rawText =
+    resume.rawText ??
+    parsedResume.summary ??
+    resume.summary ??
+    "Resume text unavailable.";
+
   return storedResumeSchema.parse({
     id: resume.id,
     metadata: {
@@ -264,7 +284,7 @@ function serializeStoredResume(resume: Resume) {
       fileSize: resume.fileSize ?? 0,
       fileUrl: resume.fileUrl ?? null,
     },
-    rawText: resume.rawText ?? parsedResume.summary ?? resume.summary ?? "Resume text unavailable.",
+    rawText,
     parsedData: parsedResume,
     extractedSkills:
       resume.extractedSkills.length > 0
@@ -321,13 +341,16 @@ function mapUnknownResumeError(
   }
 
   const errorMessage = error instanceof Error ? error.message : message;
-  const finalCode = error instanceof Error && error.message.includes("supported") ? "INVALID_FILE_TYPE" : code;
+  const finalCode: ResumeErrorCode =
+    error instanceof Error && error.message.includes("supported")
+      ? "INVALID_FILE_TYPE"
+      : code;
 
   return new ResumeServiceError(
-    finalCode as ResumeErrorCode, 
-    errorMessage, 
-    inferStatus(finalCode as ResumeErrorCode), 
-    error instanceof Error ? [error.message] : []
+    finalCode,
+    errorMessage,
+    inferStatus(finalCode),
+    error instanceof Error ? [error.message] : [],
   );
 }
 
